@@ -5,12 +5,21 @@ from sqlalchemy import BigInteger, String, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-# Создаем асинхронный движок базы данных
+
+# Загружаем переменные окружения
 load_dotenv()
-engine = create_async_engine(url=os.getenv('SQLALCHEMY_URL'))
+database_url = os.getenv('SQLALCHEMY_URL')
+
+if not database_url:
+    raise ValueError("Переменная окружения 'SQLALCHEMY_URL' не задана!")
+print(f"SQLALCHEMY_URL: {database_url}")
+
+# Создаем асинхронный движок базы данных
+engine = create_async_engine(url=database_url)
 
 # Создаем фабрику асинхронных сессий
 async_session = async_sessionmaker(engine)
+
 
 
 # Базовый класс для моделей
@@ -47,7 +56,6 @@ class Unic_ID(Base):
     user_info: Mapped[UserInfo] = relationship(back_populates="unic_ids")
 
 
-# Асинхронная функция для создания таблиц
 async def async_main():
     async with engine.begin() as conn:
         # Синхронно выполняем создание всех таблиц
