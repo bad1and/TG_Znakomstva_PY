@@ -1,19 +1,33 @@
 from sqlalchemy import select
 
-from app.database.models import UserInfo
+from app.database.models import UserInfo, Unic_ID
 from app.database.models import async_session
 
 
-
-async def set_user(tg_id, username, first_name, last_name, number, in_bot_name, years):
+async def set_user(tg_id, username, first_name, last_name, number):
     async with async_session() as session:
         user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == tg_id))
 
         if not user:
-            session.add(UserInfo(tg_id=tg_id, tg_username=username,
-                                 first_name=first_name, last_name=last_name,
-                                 number=number, in_bot_name=in_bot_name,
-                                 years=years))
+            session.add(UserInfo(
+                tg_id=tg_id,
+                tg_username=username,
+                first_name=first_name,
+                last_name=last_name,
+                number=number,
+            ))
+            await session.commit()
+
+async def unic_data_user(tg_id, in_bot_name, years, voprosi, unic_your_id, unic_wanted_id):
+    async with async_session() as session:
+            session.add(Unic_ID(
+                tg_id=tg_id,
+                in_bot_name=in_bot_name,
+                years=years,
+                voprosi=voprosi,
+                unic_your_id=unic_your_id,
+                unic_wanted_id=unic_wanted_id
+            ))
             await session.commit()
 
 #

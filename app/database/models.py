@@ -1,5 +1,6 @@
 import os
 
+from aiogram.fsm.state import StatesGroup, State
 from dotenv import load_dotenv
 from sqlalchemy import BigInteger, String, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
@@ -20,6 +21,11 @@ engine = create_async_engine(url=database_url)
 # Создаем фабрику асинхронных сессий
 async_session = async_sessionmaker(engine)
 
+class RegistrationState(StatesGroup):
+    waiting_for_bot_name = State()
+    waiting_for_age = State()
+    waiting_for_name = State()
+
 
 
 # Базовый класс для моделей
@@ -36,18 +42,19 @@ class UserInfo(Base):
     first_name: Mapped[str] = mapped_column(String(120), nullable=True)
     last_name: Mapped[str] = mapped_column(String(120), nullable=True)
     number: Mapped[int] = mapped_column(nullable=False)
-    in_bot_name: Mapped[str] = mapped_column(String(120), nullable=False)
-    years: Mapped[int] = mapped_column(nullable=False)
+
 
     # ORM связь
     unic_ids: Mapped[list["Unic_ID"]] = relationship(back_populates="user_info", cascade="all, delete-orphan")
 
 
 class Unic_ID(Base):
-    __tablename__ = 'UnicID"s'
+    __tablename__ = 'UnicIDs'
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tg_id: Mapped[int] = mapped_column(ForeignKey('UsersInfo.tg_id'), nullable=False)
+    in_bot_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    years: Mapped[int] = mapped_column(nullable=False)
     voprosi: Mapped[str] = mapped_column(String(120), nullable=False)
     unic_your_id: Mapped[str] = mapped_column(String(120), nullable=False)
     unic_wanted_id: Mapped[str] = mapped_column(String(120), nullable=False)

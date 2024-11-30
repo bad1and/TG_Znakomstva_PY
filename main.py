@@ -8,12 +8,14 @@ from dotenv import load_dotenv
 
 
 async def main():
-    await async_main()
     load_dotenv()
-    bot = Bot(token=os.getenv('TOKEN'))
+    token = os.getenv('TOKEN')
+    await async_main()
+    bot = Bot(token=token)
     dp = Dispatcher()
     dp.include_router(router)
     await dp.start_polling(bot)
+
 
 
 if __name__ == '__main__':
@@ -22,3 +24,4 @@ if __name__ == '__main__':
             main())
     except KeyboardInterrupt:
         print('Exit')
+
