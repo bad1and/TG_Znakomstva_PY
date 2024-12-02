@@ -18,17 +18,18 @@ async def set_user(tg_id, username, first_name, last_name, number):
             ))
             await session.commit()
 
+
 async def unic_data_user(tg_id, in_bot_name, years, voprosi, unic_your_id, unic_wanted_id):
     async with async_session() as session:
-            session.add(Unic_ID(
-                tg_id=tg_id,
-                in_bot_name=in_bot_name,
-                years=years,
-                voprosi=voprosi,
-                unic_your_id=unic_your_id,
-                unic_wanted_id=unic_wanted_id
-            ))
-            await session.commit()
+        session.add(Unic_ID(
+            tg_id=tg_id,
+            in_bot_name=in_bot_name,
+            years=years,
+            voprosi=voprosi,
+            unic_your_id=unic_your_id,
+            unic_wanted_id=unic_wanted_id
+        ))
+        await session.commit()
 
 #
 # async def get__categories():

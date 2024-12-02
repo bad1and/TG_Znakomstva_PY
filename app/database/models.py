@@ -6,7 +6,6 @@ from sqlalchemy import BigInteger, String, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-
 # Загружаем переменные окружения
 load_dotenv()
 database_url = os.getenv('SQLALCHEMY_URL')
@@ -21,11 +20,15 @@ engine = create_async_engine(url=database_url)
 # Создаем фабрику асинхронных сессий
 async_session = async_sessionmaker(engine)
 
+
 class RegistrationState(StatesGroup):
     waiting_for_bot_name = State()
     waiting_for_age = State()
     waiting_for_name = State()
 
+
+class Avatarka(StatesGroup):
+    waiting_for_pic = State()
 
 
 # Базовый класс для моделей
@@ -42,7 +45,6 @@ class UserInfo(Base):
     first_name: Mapped[str] = mapped_column(String(120), nullable=True)
     last_name: Mapped[str] = mapped_column(String(120), nullable=True)
     number: Mapped[int] = mapped_column(nullable=False)
-
 
     # ORM связь
     unic_ids: Mapped[list["Unic_ID"]] = relationship(back_populates="user_info", cascade="all, delete-orphan")

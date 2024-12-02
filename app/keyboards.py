@@ -1,5 +1,5 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
 # from app.database.requests import get__categories, get_category_item
 
 reg_keyboard = ReplyKeyboardMarkup(
@@ -15,13 +15,12 @@ opros_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-
 back = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text='Назад 👈')]
     ],
     resize_keyboard=True,
-                           input_field_placeholder='Выберите пункт меню...'
+    input_field_placeholder='Выберите пункт меню...'
 )
 
 menu = ReplyKeyboardMarkup(
@@ -29,24 +28,23 @@ menu = ReplyKeyboardMarkup(
         [KeyboardButton(text='Искать партнера 🥵'), KeyboardButton(text='Моя анкета 🤥')]
     ],
     resize_keyboard=True,
-                           input_field_placeholder='Выберите пункт меню... 🤭'
+    input_field_placeholder='Выберите пункт меню... 🤭'
 )
-
 
 admin_menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text='Искать партнера 🥵'), KeyboardButton(text='Моя анкета 🤥'), KeyboardButton(text='Админ-панель')]
+        [KeyboardButton(text='Искать партнера 🥵'), KeyboardButton(text='Моя анкета 🤥'),
+         KeyboardButton(text='Админ-панель')]
     ],
     resize_keyboard=True,
-                           input_field_placeholder='Выберите пункт меню... 🤭'
+    input_field_placeholder='Выберите пункт меню... 🤭'
 )
 
 admin = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text='Что то будет'), KeyboardButton(text='Назад 👈')]
-    ],
+        [KeyboardButton(text='Регистрация 🚀', request_contact=True)], [KeyboardButton(text='Назад 👈')]],
     resize_keyboard=True,
-                           input_field_placeholder='Выберите пункт меню... 🤭'
+    input_field_placeholder='Выберите пункт меню... 🤭'
 )
 
 # async def categories():
