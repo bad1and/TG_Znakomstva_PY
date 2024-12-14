@@ -1,4 +1,6 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+
+from app.questions import questions
 
 # from app.database.requests import get__categories, get_category_item
 
@@ -25,7 +27,9 @@ back = ReplyKeyboardMarkup(
 
 menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text='Искать партнера 🥵'), KeyboardButton(text='Моя анкета 🤥')]
+        [KeyboardButton(text='Искать партнера 🥵'), KeyboardButton(text='Моя анкета 🤥')
+            # , KeyboardButton(text='Изменить анкету')
+         ]
     ],
     resize_keyboard=True,
     input_field_placeholder='Выберите пункт меню... 🤭'
@@ -34,6 +38,7 @@ menu = ReplyKeyboardMarkup(
 admin_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text='Искать партнера 🥵'), KeyboardButton(text='Моя анкета 🤥'),
+         KeyboardButton(text='Изменить анкету'),
          KeyboardButton(text='Админ-панель')]
     ],
     resize_keyboard=True,
@@ -46,6 +51,19 @@ admin = ReplyKeyboardMarkup(
     resize_keyboard=True,
     input_field_placeholder='Выберите пункт меню... 🤭'
 )
+
+
+async def send_question(question_id):
+    question_data = questions.get(question_id)
+    if not question_data:
+        return "Вопрос не найден.", None
+
+    keyboard = InlineKeyboardMarkup()
+    for idx, option in enumerate(question_data["options"], start=1):
+        keyboard.add(InlineKeyboardButton(text=option, callback_data=f"answer_{question_id}_{idx}"))
+
+    return question_data["question"], keyboard
+
 
 # async def categories():
 #     all_categories = await get__categories()

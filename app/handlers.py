@@ -55,6 +55,10 @@ async def handle_contact(message: Message):
     await message.answer("Кажется, вы не проходили опрос! Испугался? Не бойся! Давай пройдем его. (если вы не с ФКТИ)",
                          reply_markup=kb.opros_keyboard)
 
+@router.message(F.text == 'Изменить анкету')
+async def start_survey(message: Message, state: FSMContext):
+    await message.answer("Как тебя зовут?", reply_markup=None)
+    await state.set_state(RegistrationState.waiting_for_name)
 
 # Начало опроса
 @router.message(F.text == 'Пройти опрос 🤙')
@@ -72,10 +76,10 @@ async def process_name(message: Message, state: FSMContext):
     await state.set_state(RegistrationState.waiting_for_age)
 
 
-# Обработчик для ввода возраста
 @router.message(RegistrationState.waiting_for_age)
 async def process_age(message: Message, state: FSMContext):
     try:
+        # Проверка возраста
         if 16 <= int(message.text) <= 40:
             age = int(message.text)
         else:
@@ -85,26 +89,41 @@ async def process_age(message: Message, state: FSMContext):
         await message.answer("Пожалуйста, введите числовое значение возраста.", reply_markup=None)
         return
 
-    user_name = await state.get_data()
-    name = user_name.get("name")
+    # Получаем имя из состояния
+    user_data = await state.get_data()
+    name = user_data.get("name")
 
+    # Сохраняем данные в базу
     await rq.unic_data_user(
         tg_id=message.from_user.id,
         in_bot_name=name,
         years=age,
-        voprosi='None',
         unic_your_id=0,
         unic_wanted_id=0
     )
-
-    # Здесь можно сохранить имя и возраст в базу данных, если нужно
-    await message.answer(f"Видишь не стоило бояться! Ты прошел регистрацию!", reply_markup=None)
     if message.from_user.id == int(os.getenv('ADMIN_ID')):
-        await message.answer(f"P.S Когда то тут будет опросник о тебе и желаемом партнере", reply_markup=kb.admin_menu)
+        await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.admin_menu)
     else:
-        await message.answer(f"P.S Когда то тут будет опросник о тебе и желаемом партнере", reply_markup=kb.menu)
+        await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.menu)
 
     await state.clear()
+
+    # Устанавливаем следующее состояние
+#     await state.set_state(RegistrationState.waiting_for_questions)
+#
+#     # Отправляем первый вопрос
+#     question_text, keyboard = await kb.send_question(1)
+#     if keyboard:
+#         await message.answer(question_text, reply_markup=keyboard)
+#     else:
+#         await message.answer(question_text)
+#
+# @router.message(RegistrationState.waiting_for_questions)
+# async def process_opros(message: Message, state: FSMContext):
+#     # Логика обработки ответов на вопросы
+#     await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.menu)
+#     await state.clear()
+
 
 
 @router.message(F.text == 'Назад 👈')

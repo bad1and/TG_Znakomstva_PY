@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.database.models import UserInfo, Unic_ID
 from app.database.models import async_session
@@ -19,17 +19,32 @@ async def set_user(tg_id, username, first_name, last_name, number):
             await session.commit()
 
 
-async def unic_data_user(tg_id, in_bot_name, years, voprosi, unic_your_id, unic_wanted_id):
+async def unic_data_user(tg_id, in_bot_name, years, unic_your_id, unic_wanted_id):
     async with async_session() as session:
-        session.add(Unic_ID(
-            tg_id=tg_id,
-            in_bot_name=in_bot_name,
-            years=years,
-            voprosi=voprosi,
-            unic_your_id=unic_your_id,
-            unic_wanted_id=unic_wanted_id
-        ))
-        await session.commit()
+        tg_id_user = await session.scalar(select(Unic_ID).where(Unic_ID.tg_id == tg_id))
+        if not tg_id_user:
+            session.add(Unic_ID(
+                tg_id=tg_id,
+                in_bot_name=in_bot_name,
+                years=years,
+                unic_your_id=unic_your_id,
+                unic_wanted_id=unic_wanted_id
+            ))
+            await session.commit()
+        if tg_id_user:
+            await session.execute(
+                update(Unic_ID)
+                .where(Unic_ID.tg_id == tg_id)
+                .values(
+                    in_bot_name=in_bot_name,
+                    years=years,
+                    unic_your_id=unic_your_id,
+                    unic_wanted_id=unic_wanted_id
+                )
+            )
+
+            await session.commit()
+
 
 #
 # async def get__categories():
