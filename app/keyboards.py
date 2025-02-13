@@ -1,8 +1,26 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-from app.questions import questions
+from app.questions import questions_your
 
-# from app.database.requests import get__categories, get_category_item
+
+def get_question_keyboard(question_id):
+
+    buttons = [
+        [InlineKeyboardButton(text=option, callback_data=f"answer_{question_id}_{i}")]
+        for i, option in enumerate(questions_your[question_id]["options"])
+    ]
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+# def get_question_keyboard_for_you(question_id):
+#
+#     buttons = [
+#         [InlineKeyboardButton(text=option, callback_data=f"answer_{question_id}_{i}")]
+#         for i, option in enumerate(questions_your[question_id]["options"])
+#     ]
+#
+#     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 reg_keyboard = ReplyKeyboardMarkup(
     keyboard=[
@@ -53,16 +71,16 @@ admin = ReplyKeyboardMarkup(
 )
 
 
-async def send_question(question_id):
-    question_data = questions.get(question_id)
-    if not question_data:
-        return "Вопрос не найден.", None
-
-    keyboard = InlineKeyboardMarkup()
-    for idx, option in enumerate(question_data["options"], start=1):
-        keyboard.add(InlineKeyboardButton(text=option, callback_data=f"answer_{question_id}_{idx}"))
-
-    return question_data["question"], keyboard
+# async def send_question(question_id):
+#     question_data = questions.get(question_id)
+#     if not question_data:
+#         return "Вопрос не найден.", None
+#
+#     keyboard = InlineKeyboardMarkup()
+#     for idx, option in enumerate(question_data["options"], start=1):
+#         keyboard.add(InlineKeyboardButton(text=option, callback_data=f"answer_{question_id}_{idx}"))
+#
+#     return question_data["question"], keyboard
 
 
 # async def categories():

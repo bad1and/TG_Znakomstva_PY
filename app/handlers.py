@@ -4,13 +4,13 @@ from io import BytesIO
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, BufferedInputFile
+from aiogram.types import Message, BufferedInputFile, CallbackQuery
 from sqlalchemy import select
 
 import app.database.requests as rq
 import app.keyboards as kb
-from app.database.models import async_session, UserInfo, RegistrationState, Unic_ID
-
+from app.database.models import async_session, UserInfo, RegistrationState, Unic_ID, Survey_your
+from app.questions import questions_your
 router = Router()
 
 
@@ -135,8 +135,56 @@ async def menu(message: Message):
 
 
 @router.message(F.text == 'Искать партнера 🥵')
-async def find_partner(message: Message):
-    await message.answer("Когда то тут будет поиск...", reply_markup=kb.back)
+async def start_survey(message: Message, state: FSMContext):
+    """Запускает опрос с первого вопроса"""
+    await state.set_state(Survey_your.question_id)
+    await state.update_data(answers=[])  # Сбрасываем ответы
+
+    await ask_question(message, state, question_id=1)
+
+
+async def ask_question(message: Message, state: FSMContext, question_id: int):
+    """Отправляет текущий вопрос и кнопки с вариантами ответов"""
+    question_data = questions_your[question_id]
+    sent_message = await message.answer(question_data["question"], reply_markup=kb.get_question_keyboard(question_id))
+
+    await state.update_data(question_id=question_id, last_message_id=sent_message.message_id)
+
+
+@router.callback_query(F.data.startswith("answer_"))
+async def handle_answer(callback: CallbackQuery, state: FSMContext):
+    """Обрабатывает выбор ответа, удаляет старый вопрос, сохраняет индекс и переходит к следующему"""
+    data = await state.get_data()
+    answers = data.get("answers", [])
+
+    # Парсим callback_data (пример: "answer_1_2" → question_id=1, answer_index=2)
+    _, question_id, answer_index = callback.data.split("_")
+    question_id = int(question_id)
+    answer_index = int(answer_index)
+
+    answers.append(str(answer_index))
+    await state.update_data(answers=answers)
+
+    # Удаляем предыдущее сообщение с вопросом
+    try:
+        if "last_message_id" in data:
+            await callback.message.delete()
+    except Exception:
+        pass  # Игнорируем ошибку, если сообщение уже удалено
+
+    # Проверяем, есть ли следующий вопрос
+    if question_id < len(questions_your):
+        await ask_question(callback.message, state, question_id + 1)
+    else:
+        # Финальный этап - сбор и вывод unic_your_id
+        unic_your_id = ";".join(answers)
+        await callback.message.answer(f"Опрос завершен! Ваш ID: {unic_your_id}", reply_markup=kb.back)
+        await state.clear()
+
+    await callback.answer()  # Подтверждение callback-запроса
+
+
+
 
 
 @router.message(F.text == 'Моя анкета 🤥')
