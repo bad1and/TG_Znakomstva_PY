@@ -22,7 +22,7 @@ async_session = async_sessionmaker(engine)
 
 
 class RegistrationState(StatesGroup):
-    waiting_for_questions = State()
+    # waiting_for_questions = State()
     waiting_for_bot_name = State()
     waiting_for_age = State()
     waiting_for_name = State()
