@@ -23,6 +23,12 @@ back = InlineKeyboardMarkup(
     inline_keyboard=[[InlineKeyboardButton(text="Назад", callback_data="back")]]
 )
 
+start_opros = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text='Пройти опросик))')]
+    ],
+    resize_keyboard=True
+)
 
 reg_keyboard = ReplyKeyboardMarkup(
     keyboard=[
@@ -48,7 +54,7 @@ back = ReplyKeyboardMarkup(
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text='Искать партнера 🥵'), KeyboardButton(text='Моя анкета 🤥')
-            # , KeyboardButton(text='Изменить анкету')
+            , KeyboardButton(text='Изменить анкету')
          ]
     ],
     resize_keyboard=True,

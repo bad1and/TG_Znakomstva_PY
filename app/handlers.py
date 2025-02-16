@@ -56,10 +56,11 @@ async def handle_contact(message: Message):
     await message.answer("Кажется, вы не проходили опрос! Испугался? Не бойся! Давай пройдем его. (если вы не с ФКТИ)",
                          reply_markup=kb.opros_keyboard)
 
-@router.message(F.text == 'Изменить анкету')
-async def start_survey(message: Message, state: FSMContext):
-    await message.answer("Как тебя зовут?", reply_markup=None)
-    await state.set_state(RegistrationState.waiting_for_name)
+# @router.message(F.text == 'Изменить анкету')
+# async def start_survey(message: Message, state: FSMContext):
+#     await message.answer("Как тебя зовут?", reply_markup=None)
+#     await state.set_state(RegistrationState.waiting_for_name)
+
 
 # Начало опроса
 @router.message(F.text == 'Пройти опрос 🤙')
@@ -94,41 +95,32 @@ async def process_age(message: Message, state: FSMContext):
     user_data = await state.get_data()
     name = user_data.get("name")
 
-    print(f"[DEBUG _ 0] message.from_user.id: {message.from_user.id}")  # Должен быть ID пользователя
-
-    # Сохраняем данные в базу
     await rq.unic_data_user(
-        tg_id=message.from_user.id,
+        tg_id=message.from_user.id,  # Передаем корректный ID пользователя
         in_bot_name=name,
         years=age,
         unic_your_id=0,
         unic_wanted_id=0
     )
-    if message.from_user.id == int(os.getenv('ADMIN_ID')):
-        await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.admin_menu)
-    else:
-        await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.menu)
 
+    await message.answer("Теперь давай заполним анкету о тебе и твоих предпочтениях в партнере!", reply_markup=kb.start_opros)
     await state.clear()
-
-
-
-
-@router.message(F.text == 'Назад 👈')
-async def menu(message: Message):
-    if message.from_user.id == int(os.getenv('ADMIN_ID')):
-        await message.answer("Панель", reply_markup=kb.admin_menu)
-    else:
-        await message.answer("Выберите действие", reply_markup=kb.menu)
 
 
 
 @router.message(F.text == 'Искать партнера 🥵')
 async def start_survey(message: Message, state: FSMContext):
+    await message.answer(f"Алгоритм поиска временно отсутствует", reply_markup=kb.back)
+
+
+
+@router.message(F.text.in_(['Пройти опросик))', 'Изменить анкету']))
+async def start_survey(message: Message, state: FSMContext):
     """Запускает опрос"""
     await state.update_data(your_answers=[])
     await state.update_data(wanted_answers=[])
     await ask_question(message, state, 1)
+
 
 async def ask_question(message: Message, state: FSMContext, question_id: int):
     """Задает следующий вопрос про пользователя"""
@@ -153,8 +145,16 @@ async def ask_wanted_question(message: Message, state: FSMContext, question_id: 
             unic_wanted_id=unic_wanted_id
         )
 
-        await message.answer("Опрос завершен!", reply_markup=kb.back)
+        if user_id == int(os.getenv('ADMIN_ID')):
+            await message.answer(f"Готово админ", reply_markup=kb.admin_menu)
+        elif F.text == 'Пройти опросик))':
+            await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.menu)
+        elif F.text == 'Изменить анкету':
+            await message.answer(f"Анкета успешно изменена", reply_markup=kb.menu)
         await state.clear()
+
+
+
 
 @router.callback_query(F.data.startswith("answer_you_"))
 async def handle_you_answer(callback: CallbackQuery, state: FSMContext):
@@ -190,6 +190,14 @@ async def handle_wanted_answer(callback: CallbackQuery, state: FSMContext):
 
 
 
+
+
+@router.message(F.text == 'Назад 👈')
+async def menu(message: Message):
+    if message.from_user.id == int(os.getenv('ADMIN_ID')):
+        await message.answer("Панель", reply_markup=kb.admin_menu)
+    else:
+        await message.answer("Выберите действие", reply_markup=kb.menu)
 
 
 @router.message(F.text == 'Моя анкета 🤥')
