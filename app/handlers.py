@@ -9,9 +9,10 @@ from sqlalchemy import select
 
 import app.database.requests as rq
 import app.keyboards as kb
-from app.database.models import async_session, UserInfo, RegistrationState, Unic_ID, Survey_your
-from app.questions import questions_your
+from app.database.models import async_session, UserInfo, RegistrationState, Unic_ID
+from app.questions import questions,questions_wanted
 router = Router()
+
 
 
 # Команда /start
@@ -93,6 +94,8 @@ async def process_age(message: Message, state: FSMContext):
     user_data = await state.get_data()
     name = user_data.get("name")
 
+    print(f"[DEBUG _ 0] message.from_user.id: {message.from_user.id}")  # Должен быть ID пользователя
+
     # Сохраняем данные в базу
     await rq.unic_data_user(
         tg_id=message.from_user.id,
@@ -108,21 +111,6 @@ async def process_age(message: Message, state: FSMContext):
 
     await state.clear()
 
-    # Устанавливаем следующее состояние
-#     await state.set_state(RegistrationState.waiting_for_questions)
-#
-#     # Отправляем первый вопрос
-#     question_text, keyboard = await kb.send_question(1)
-#     if keyboard:
-#         await message.answer(question_text, reply_markup=keyboard)
-#     else:
-#         await message.answer(question_text)
-#
-# @router.message(RegistrationState.waiting_for_questions)
-# async def process_opros(message: Message, state: FSMContext):
-#     # Логика обработки ответов на вопросы
-#     await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.menu)
-#     await state.clear()
 
 
 
@@ -134,54 +122,71 @@ async def menu(message: Message):
         await message.answer("Выберите действие", reply_markup=kb.menu)
 
 
+
 @router.message(F.text == 'Искать партнера 🥵')
 async def start_survey(message: Message, state: FSMContext):
-    """Запускает опрос с первого вопроса"""
-    await state.set_state(Survey_your.question_id)
-    await state.update_data(answers=[])  # Сбрасываем ответы
-
-    await ask_question(message, state, question_id=1)
-
+    """Запускает опрос"""
+    await state.update_data(your_answers=[])
+    await state.update_data(wanted_answers=[])
+    await ask_question(message, state, 1)
 
 async def ask_question(message: Message, state: FSMContext, question_id: int):
-    """Отправляет текущий вопрос и кнопки с вариантами ответов"""
-    question_data = questions_your[question_id]
-    sent_message = await message.answer(question_data["question"], reply_markup=kb.get_question_keyboard(question_id))
-
-    await state.update_data(question_id=question_id, last_message_id=sent_message.message_id)
-
-
-@router.callback_query(F.data.startswith("answer_"))
-async def handle_answer(callback: CallbackQuery, state: FSMContext):
-    """Обрабатывает выбор ответа, удаляет старый вопрос, сохраняет индекс и переходит к следующему"""
-    data = await state.get_data()
-    answers = data.get("answers", [])
-
-    # Парсим callback_data (пример: "answer_1_2" → question_id=1, answer_index=2)
-    _, question_id, answer_index = callback.data.split("_")
-    question_id = int(question_id)
-    answer_index = int(answer_index)
-
-    answers.append(str(answer_index))
-    await state.update_data(answers=answers)
-
-    # Удаляем предыдущее сообщение с вопросом
-    try:
-        if "last_message_id" in data:
-            await callback.message.delete()
-    except Exception:
-        pass  # Игнорируем ошибку, если сообщение уже удалено
-
-    # Проверяем, есть ли следующий вопрос
-    if question_id < len(questions_your):
-        await ask_question(callback.message, state, question_id + 1)
+    """Задает следующий вопрос про пользователя"""
+    if question_id in questions:
+        await message.answer(questions[question_id]["question"], reply_markup=kb.get_question_keyboard(question_id))
     else:
-        # Финальный этап - сбор и вывод unic_your_id
-        unic_your_id = ";".join(answers)
-        await callback.message.answer(f"Опрос завершен! Ваш ID: {unic_your_id}", reply_markup=kb.back)
+        await ask_wanted_question(message, state, 1, message.from_user.id)
+
+async def ask_wanted_question(message: Message, state: FSMContext, question_id: int, user_id: int):
+    if question_id in questions_wanted:
+        await message.answer(questions_wanted[question_id]["question"], reply_markup=kb.get_wanted_question_keyboard(question_id))
+    else:
+        data = await state.get_data()
+        unic_your_id = ";".join(data.get("your_answers", []))
+        unic_wanted_id = ";".join(data.get("wanted_answers", []))
+
+        await rq.unic_data_user(
+            tg_id=user_id,  # Передаем корректный ID пользователя
+            in_bot_name=None,
+            years=None,
+            unic_your_id=unic_your_id,
+            unic_wanted_id=unic_wanted_id
+        )
+
+        await message.answer("Опрос завершен!", reply_markup=kb.back)
         await state.clear()
 
-    await callback.answer()  # Подтверждение callback-запроса
+@router.callback_query(F.data.startswith("answer_you_"))
+async def handle_you_answer(callback: CallbackQuery, state: FSMContext):
+    """Обрабатывает ответы пользователя"""
+    data = callback.data.split("_")
+    question_id, answer_index = int(data[2]), data[3]
+
+    user_data = await state.get_data()
+    your_answers = user_data.get("your_answers", [])
+    your_answers.append(answer_index)
+    await state.update_data(your_answers=your_answers)
+
+    await callback.message.delete()
+    await ask_question(callback.message, state, question_id + 1)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("answer_wanted_"))
+async def handle_wanted_answer(callback: CallbackQuery, state: FSMContext):
+    tg_id = callback.from_user.id  # Исправлено: используем callback.from_user.id
+    data = callback.data.split("_")
+    question_id, answer_index = int(data[2]), data[3]
+
+    user_data = await state.get_data()
+    wanted_answers = user_data.get("wanted_answers", [])
+    wanted_answers.append(answer_index)
+    await state.update_data(wanted_answers=wanted_answers)
+
+    await callback.message.delete()
+    await ask_wanted_question(callback.message, state, question_id + 1, callback.from_user.id)
+
+    await callback.answer()
 
 
 

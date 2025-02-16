@@ -65,10 +65,6 @@ class Unic_ID(Base):
     user_info: Mapped[UserInfo] = relationship(back_populates="unic_ids")
 
 
-class Survey_your(StatesGroup):
-    question_id = State()
-    answers = State()
-
 
 async def async_main():
     async with engine.begin() as conn:

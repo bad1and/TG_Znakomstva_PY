@@ -1,25 +1,27 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-from app.questions import questions_your
+from app.questions import questions,questions_wanted
 
 
-def get_question_keyboard(question_id):
-
+def get_question_keyboard(question_id: int) -> InlineKeyboardMarkup:
+    """Генерирует inline-клавиатуру для вопросов про пользователя"""
     buttons = [
-        [InlineKeyboardButton(text=option, callback_data=f"answer_{question_id}_{i}")]
-        for i, option in enumerate(questions_your[question_id]["options"])
+        [InlineKeyboardButton(text=option, callback_data=f"answer_you_{question_id}_{i}")]
+        for i, option in enumerate(questions[question_id]["options"])
     ]
-
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-# def get_question_keyboard_for_you(question_id):
-#
-#     buttons = [
-#         [InlineKeyboardButton(text=option, callback_data=f"answer_{question_id}_{i}")]
-#         for i, option in enumerate(questions_your[question_id]["options"])
-#     ]
-#
-#     return InlineKeyboardMarkup(inline_keyboard=buttons)
+def get_wanted_question_keyboard(question_id: int) -> InlineKeyboardMarkup:
+    """Генерирует inline-клавиатуру для вопросов про партнера"""
+    buttons = [
+        [InlineKeyboardButton(text=option, callback_data=f"answer_wanted_{question_id}_{i}")]
+        for i, option in enumerate(questions_wanted[question_id]["options"])
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+back = InlineKeyboardMarkup(
+    inline_keyboard=[[InlineKeyboardButton(text="Назад", callback_data="back")]]
+)
 
 
 reg_keyboard = ReplyKeyboardMarkup(
