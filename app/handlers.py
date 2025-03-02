@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 import app.database.requests as rq
 import app.keyboards as kb
-from app.database.models import async_session, UserInfo, RegistrationState, Unic_ID
+from app.database.models import async_session, UserInfo, RegistrationState
 from app.questions import questions,questions_wanted
 router = Router()
 
@@ -45,13 +45,18 @@ async def handle_contact(message: Message):
     number = message.contact.phone_number
 
     # Сохраняем пользователя в базе данных
-    await rq.set_user(
+    await rq.unic_data_user(
         tg_id=tg_id,
         username=username,
         first_name=first_name,
         last_name=last_name,
         number=number,
+        in_bot_name=None,
+        years=None,
+        unic_your_id=None,
+        unic_wanted_id=None
     )
+
     await message.answer("Спасибо за регистрацию! Добро пожаловать!", reply_markup=None)
     await message.answer("Кажется, вы не проходили опрос! Испугался? Не бойся! Давай пройдем его. (если вы не с ФКТИ)",
                          reply_markup=kb.opros_keyboard)
@@ -95,7 +100,11 @@ async def process_age(message: Message, state: FSMContext):
         in_bot_name=name,
         years=age,
         unic_your_id=0,
-        unic_wanted_id=0
+        unic_wanted_id=0,
+        username = None,
+        first_name = None,
+        last_name = None,
+        number = None
     )
 
     await message.answer("Теперь давай заполним анкету о тебе и твоих предпочтениях в партнере!", reply_markup=kb.start_opros)
@@ -122,20 +131,30 @@ async def ask_question(message: Message, state: FSMContext, question_id: int):
     else:
         await ask_wanted_question(message, state, 1, message.from_user.id)
 
+
 async def ask_wanted_question(message: Message, state: FSMContext, question_id: int, user_id: int):
     if question_id in questions_wanted:
-        await message.answer(questions_wanted[question_id]["question"], reply_markup=kb.get_wanted_question_keyboard(question_id))
+        await message.answer(questions_wanted[question_id]["question"],
+                             reply_markup=kb.get_wanted_question_keyboard(question_id))
     else:
         data = await state.get_data()
         unic_your_id = ";".join(data.get("your_answers", []))
         unic_wanted_id = ";".join(data.get("wanted_answers", []))
 
+        # Получаем дополнительные данные из БД, чтобы передать в функцию обновления
+        async with async_session() as session:
+            user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == user_id))
+
         await rq.unic_data_user(
-            tg_id=user_id,  # Передаем корректный ID пользователя
-            in_bot_name=None,
-            years=None,
+            tg_id=user_id,
+            in_bot_name=user.in_bot_name if user else None,
+            years=user.years if user else None,
             unic_your_id=unic_your_id,
-            unic_wanted_id=unic_wanted_id
+            unic_wanted_id=unic_wanted_id,
+            username=user.tg_username if user else None,
+            first_name=user.first_name if user else None,
+            last_name=user.last_name if user else None,
+            number=user.number if user else None
         )
 
         if user_id == int(os.getenv('ADMIN_ID')):
@@ -145,6 +164,7 @@ async def ask_wanted_question(message: Message, state: FSMContext, question_id: 
         elif F.text == 'Изменить анкету':
             await message.answer(f"Анкета успешно изменена", reply_markup=kb.menu)
         await state.clear()
+
 
 @router.callback_query(F.data.startswith("answer_you_"))
 async def handle_you_answer(callback: CallbackQuery, state: FSMContext):
@@ -190,7 +210,7 @@ async def menu(message: Message):
 @router.message(F.text == 'Моя анкета 🤥')
 async def find_partner(message: Message):
     async with async_session() as session:
-        user = await session.scalar(select(Unic_ID).where(Unic_ID.tg_id == message.from_user.id))
+        user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == message.from_user.id))
         if (not user) and (message.from_user.id != int(os.getenv('ADMIN_ID'))):
             await message.answer(
                 "Анкета не найдена. Сначала зарегистрируйтесь через 'Регистрация 🚀'.",
