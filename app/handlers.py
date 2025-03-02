@@ -56,11 +56,6 @@ async def handle_contact(message: Message):
     await message.answer("Кажется, вы не проходили опрос! Испугался? Не бойся! Давай пройдем его. (если вы не с ФКТИ)",
                          reply_markup=kb.opros_keyboard)
 
-# @router.message(F.text == 'Изменить анкету')
-# async def start_survey(message: Message, state: FSMContext):
-#     await message.answer("Как тебя зовут?", reply_markup=None)
-#     await state.set_state(RegistrationState.waiting_for_name)
-
 
 # Начало опроса
 @router.message(F.text == 'Пройти опрос 🤙')
@@ -113,14 +108,12 @@ async def start_survey(message: Message, state: FSMContext):
     await message.answer(f"Алгоритм поиска временно отсутствует", reply_markup=kb.back)
 
 
-
 @router.message(F.text.in_(['Пройти опросик))', 'Изменить анкету']))
 async def start_survey(message: Message, state: FSMContext):
     """Запускает опрос"""
     await state.update_data(your_answers=[])
     await state.update_data(wanted_answers=[])
     await ask_question(message, state, 1)
-
 
 async def ask_question(message: Message, state: FSMContext, question_id: int):
     """Задает следующий вопрос про пользователя"""
@@ -153,9 +146,6 @@ async def ask_wanted_question(message: Message, state: FSMContext, question_id: 
             await message.answer(f"Анкета успешно изменена", reply_markup=kb.menu)
         await state.clear()
 
-
-
-
 @router.callback_query(F.data.startswith("answer_you_"))
 async def handle_you_answer(callback: CallbackQuery, state: FSMContext):
     """Обрабатывает ответы пользователя"""
@@ -187,9 +177,6 @@ async def handle_wanted_answer(callback: CallbackQuery, state: FSMContext):
     await ask_wanted_question(callback.message, state, question_id + 1, callback.from_user.id)
 
     await callback.answer()
-
-
-
 
 
 @router.message(F.text == 'Назад 👈')
