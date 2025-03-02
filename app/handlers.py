@@ -111,12 +111,6 @@ async def process_age(message: Message, state: FSMContext):
     await state.clear()
 
 
-
-@router.message(F.text == 'Искать партнера 🥵')
-async def start_survey(message: Message, state: FSMContext):
-    await message.answer(f"Алгоритм поиска временно отсутствует", reply_markup=kb.back)
-
-
 @router.message(F.text.in_(['Пройти опросик))', 'Изменить анкету']))
 async def start_survey(message: Message, state: FSMContext):
     """Запускает опрос"""
@@ -197,6 +191,36 @@ async def handle_wanted_answer(callback: CallbackQuery, state: FSMContext):
     await ask_wanted_question(callback.message, state, question_id + 1, callback.from_user.id)
 
     await callback.answer()
+
+
+@router.message(F.text == 'Искать партнера 🥵')
+async def start_survey(message: Message, state: FSMContext):
+    tg_id = message.from_user.id
+    async with async_session() as session:
+        user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == tg_id))
+        unic_wanted_id = user.unic_wanted_id
+
+        # Ищем пользователей, у которых unic_your_id совпадает с unic_wanted_id текущего пользователя
+        potential_matches = await session.scalars(
+            select(UserInfo).where(UserInfo.unic_your_id.like(f"%{unic_wanted_id}%"))
+        )
+
+        # Если совпадения найдены, выводим tg_username в консоль
+        matches_found = False
+        for potential_match in potential_matches:
+            if potential_match.tg_id != tg_id:  # Исключаем самого себя
+                # Можно также отправить сообщение с предложением познакомиться
+                if message.from_user.id == int(os.getenv('ADMIN_ID')):
+                    await message.answer(f"Мы нашли возможного партнера! Его ник в Telegram: @{potential_match.tg_username}",reply_markup=kb.admin_menu)
+                else:
+                    await message.answer(
+                    f"Мы нашли возможного партнера! Его ник в Telegram: @{potential_match.tg_username}",
+                    reply_markup=kb.menu
+                )
+                matches_found = True
+
+        if not matches_found:
+            await message.answer("Партнеров по вашему запросу не найдено.")
 
 
 @router.message(F.text == 'Назад 👈')
