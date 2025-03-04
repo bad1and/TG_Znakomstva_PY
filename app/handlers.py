@@ -194,46 +194,50 @@ async def handle_wanted_answer(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(F.text == 'Искать партнера 🥵')
-async def start_survey(message: Message):
+async def start_survey(message: Message, state: FSMContext):
     tg_id = message.from_user.id
     async with async_session() as session:
         # Получаем текущего пользователя
         user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == tg_id))
+        if not user:
+            await message.answer("Сначала зарегистрируйтесь через 'Регистрация 🚀'.")
+            return
+
         unic_wanted_id = user.unic_wanted_id
+        if not unic_wanted_id:
+            await message.answer("У вас нет предпочтений для поиска партнера. Заполните анкету!")
+            return
 
-        # 1. Точный поиск партнера
-        potential_matches = await session.scalars(
-            select(UserInfo).where(UserInfo.unic_your_id == unic_wanted_id)
-        )
-        best_match = None
+        exact_matches = []
+        similar_matches = []
+        wanted_ids = unic_wanted_id.split(";")  # Разбиваем предпочтения
 
-        for match in potential_matches:
-            if match.tg_id != tg_id:  # Исключаем самого себя
-                best_match = match
-                break
+        # Получаем всех пользователей из базы
+        all_users = await session.scalars(select(UserInfo))
+        for candidate in all_users:
+            if candidate.tg_id == tg_id:
+                continue  # Пропускаем самого себя
 
-        # 2. Поиск похожего человека
-        if not best_match:
-            wanted_ids = unic_wanted_id.split(";")  # Разбиваем предпочтения
+            if not candidate.unic_your_id:
+                continue  # Пропускаем, если у кандидата нет анкеты
 
-            all_users = await session.scalars(select(UserInfo))
-            for candidate in all_users:
-                if candidate.tg_id == tg_id:
-                    continue  # Пропускаем самого себя
+            your_ids = candidate.unic_your_id.split(";")  # Разбиваем анкету кандидата
+            similarity = sum(1 for i, j in zip(wanted_ids, your_ids) if i == j)  # Подсчет совпадений
 
-                if not candidate.unic_your_id:
-                    continue  # Пропускаем, если у кандидата нет анкеты
+            if candidate.unic_your_id == unic_wanted_id:
+                exact_matches.append(f"@{candidate.tg_username}")  # 100% совпадение
+            elif similarity >= len(wanted_ids) - 1:  # Разрешаем одно несовпадение
+                similar_matches.append(f"@{candidate.tg_username}")  # Похожий партнер
 
-                your_ids = candidate.unic_your_id.split(";")  # Разбиваем анкету кандидата
-                similarity = sum(1 for i, j in zip(wanted_ids, your_ids) if i == j)  # Подсчет совпадений
+        # Формируем сообщение с результатами
+        response = []
+        if exact_matches:
+            response.append(f"🔹 **100% совпадение**: {', '.join(exact_matches)}")
+        if similar_matches:
+            response.append(f"🔸 **Похожие партнеры**: {', '.join(similar_matches)}")
 
-                if similarity >= len(wanted_ids) - 1:  # Допускаем максимум 1 несовпадение
-                    best_match = candidate
-                    break
-
-        # 3. Вывод результата
-        if best_match:
-            await message.answer(f"Мы нашли вам похожего партнера! @{best_match.tg_username}")
+        if response:
+            await message.answer("\n\n".join(response))
         else:
             await message.answer("Пока что партнеров нет, но не переживайте, попробуем позже!")
 
