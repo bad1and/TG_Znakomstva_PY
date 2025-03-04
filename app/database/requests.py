@@ -4,7 +4,7 @@ from app.database.models import UserInfo
 from app.database.models import async_session
 
 
-async def set_user(tg_id, username, first_name, last_name, number):
+async def set_user(tg_id, username, first_name, last_name, number,sex):
     async with async_session() as session:
         user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == tg_id))
 
@@ -12,6 +12,7 @@ async def set_user(tg_id, username, first_name, last_name, number):
             session.add(UserInfo(
                 tg_id=tg_id,
                 tg_username=username,
+                sex = sex,
                 first_name=first_name,
                 last_name=last_name,
                 number=number,
@@ -25,7 +26,7 @@ async def set_user(tg_id, username, first_name, last_name, number):
 
 
 
-async def unic_data_user(tg_id, in_bot_name, years, unic_your_id, unic_wanted_id, username, first_name, last_name, number):
+async def unic_data_user(tg_id, in_bot_name, years,sex, unic_your_id, unic_wanted_id, username, first_name, last_name, number):
     async with async_session() as session:
         user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == tg_id))
 
@@ -34,6 +35,7 @@ async def unic_data_user(tg_id, in_bot_name, years, unic_your_id, unic_wanted_id
             session.add(UserInfo(
                 tg_id=tg_id,
                 tg_username=username or "",
+                sex=sex or "",
                 first_name=first_name or "",
                 last_name=last_name or "",
                 number=number or 0,
@@ -62,6 +64,8 @@ async def unic_data_user(tg_id, in_bot_name, years, unic_your_id, unic_wanted_id
                 update_values["last_name"] = last_name
             if number is not None:
                 update_values["number"] = number
+            if sex is not None:
+                update_values["sex"] = sex
 
             if update_values:
                 await session.execute(

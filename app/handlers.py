@@ -11,6 +11,8 @@ import app.database.requests as rq
 import app.keyboards as kb
 from app.database.models import async_session, UserInfo, RegistrationState
 from app.questions import questions,questions_wanted
+from app.matching import find_matching_users, show_partner_profile
+
 router = Router()
 
 
@@ -51,6 +53,7 @@ async def handle_contact(message: Message):
         first_name=first_name,
         last_name=last_name,
         number=number,
+        sex=None,
         in_bot_name=None,
         years=None,
         unic_your_id=None,
@@ -68,12 +71,31 @@ async def start_survey(message: Message, state: FSMContext):
     await message.answer("Как тебя зовут?", reply_markup=None)
     await state.set_state(RegistrationState.waiting_for_name)
 
-
 # Обработчик для ввода имени
 @router.message(RegistrationState.waiting_for_name)
 async def process_name(message: Message, state: FSMContext):
     name = message.text
     await state.update_data(name=name)
+    await message.answer("Выберите ваш пол", reply_markup=kb.sex)
+    await state.set_state(RegistrationState.waiting_for_sex)
+
+
+# Обработчик для ввода имени
+@router.message(RegistrationState.waiting_for_sex)
+async def process_sex(message: Message, state: FSMContext):
+    sex = message.text
+    try:
+        if sex == "Мужской":
+            sex = "men"
+        elif sex == "Женский":
+            sex = "woman"
+        else:
+            await message.answer("Нет такого варианта", reply_markup=None)
+            return
+    except ValueError:
+        # await message.answer("Нет такого варианта", reply_markup=None)
+        return
+    await state.update_data(sex=sex)
     await message.answer("Сколько тебе лет?", reply_markup=None)
     await state.set_state(RegistrationState.waiting_for_age)
 
@@ -94,11 +116,13 @@ async def process_age(message: Message, state: FSMContext):
     # Получаем имя из состояния
     user_data = await state.get_data()
     name = user_data.get("name")
+    sex = user_data.get("sex")
 
     await rq.unic_data_user(
         tg_id=message.from_user.id,  # Передаем корректный ID пользователя
         in_bot_name=name,
         years=age,
+        sex=sex,
         unic_your_id=0,
         unic_wanted_id=0,
         username = None,
@@ -142,6 +166,7 @@ async def ask_wanted_question(message: Message, state: FSMContext, question_id: 
         await rq.unic_data_user(
             tg_id=user_id,
             in_bot_name=user.in_bot_name if user else None,
+            sex=user.sex if user else None,
             years=user.years if user else None,
             unic_your_id=unic_your_id,
             unic_wanted_id=unic_wanted_id,
@@ -193,53 +218,53 @@ async def handle_wanted_answer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+
+
+
+
 @router.message(F.text == 'Искать партнера 🥵')
-async def start_survey(message: Message, state: FSMContext):
-    tg_id = message.from_user.id
+async def find_partner(message: Message, state: FSMContext):
     async with async_session() as session:
-        # Получаем текущего пользователя
-        user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == tg_id))
-        if not user:
-            await message.answer("Сначала зарегистрируйтесь через 'Регистрация 🚀'.")
+        user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == message.from_user.id))
+
+        matched_users = await find_matching_users(user)
+        if not matched_users:
+            await message.answer("Совпадений не найдено.")
             return
 
-        unic_wanted_id = user.unic_wanted_id
-        if not unic_wanted_id:
-            await message.answer("У вас нет предпочтений для поиска партнера. Заполните анкету!")
-            return
+        await state.update_data(matched_users=matched_users)
+        await show_partner_profile(message, matched_users, 0)
 
-        exact_matches = []
-        similar_matches = []
-        wanted_ids = unic_wanted_id.split(";")  # Разбиваем предпочтения
 
-        # Получаем всех пользователей из базы
-        all_users = await session.scalars(select(UserInfo))
-        for candidate in all_users:
-            if candidate.tg_id == tg_id:
-                continue  # Пропускаем самого себя
+@router.callback_query(F.data.startswith("prev_"))
+async def prev_partner(callback: CallbackQuery, state: FSMContext):
+    index = int(callback.data.split("_")[1]) - 1
+    user_data = await state.get_data()
+    users = user_data.get("matched_users", [])
 
-            if not candidate.unic_your_id:
-                continue  # Пропускаем, если у кандидата нет анкеты
+    if index < 0:
+        index = len(users) - 1
 
-            your_ids = candidate.unic_your_id.split(";")  # Разбиваем анкету кандидата
-            similarity = sum(1 for i, j in zip(wanted_ids, your_ids) if i == j)  # Подсчет совпадений
+    await show_partner_profile(callback.message, users, index)
+    await callback.message.delete()
+    await callback.answer()
 
-            if candidate.unic_your_id == unic_wanted_id:
-                exact_matches.append(f"@{candidate.tg_username}")  # 100% совпадение
-            elif similarity >= len(wanted_ids) - 1:  # Разрешаем одно несовпадение
-                similar_matches.append(f"@{candidate.tg_username}")  # Похожий партнер
 
-        # Формируем сообщение с результатами
-        response = []
-        if exact_matches:
-            response.append(f"🔹 **100% совпадение**: {', '.join(exact_matches)}")
-        if similar_matches:
-            response.append(f"🔸 **Похожие партнеры**: {', '.join(similar_matches)}")
+@router.callback_query(F.data.startswith("next_"))
+async def next_partner(callback: CallbackQuery, state: FSMContext):
+    index = int(callback.data.split("_")[1]) + 1
+    user_data = await state.get_data()
+    users = user_data.get("matched_users", [])
 
-        if response:
-            await message.answer("\n\n".join(response))
-        else:
-            await message.answer("Пока что партнеров нет, но не переживайте, попробуем позже!")
+    if index >= len(users):
+        index = 0
+
+    await show_partner_profile(callback.message, users, index)
+    await callback.message.delete()
+    await callback.answer()
+
+
+
 
 
 @router.message(F.text == 'Назад 👈')
@@ -288,6 +313,7 @@ async def find_partner(message: Message):
 
         profile_text = f"**Твоя анкета:**\n\n" \
                        f"Имя: {user.in_bot_name if user and user.in_bot_name else 'Не указано'}\n" \
+                       f"Пол: {user.sex if user and user.sex else 'Не указан'}\n" \
                        f"Возраст: {user.years if user and user.years else 'Не указан'}"
 
         await message.answer(profile_text, reply_markup=kb.back)

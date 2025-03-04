@@ -22,6 +22,7 @@ async_session = async_sessionmaker(engine)
 
 
 class RegistrationState(StatesGroup):
+    waiting_for_sex = State()
     waiting_for_opros = State()
     waiting_for_bot_name = State()
     waiting_for_age = State()
@@ -47,6 +48,7 @@ class UserInfo(Base):
     last_name: Mapped[str] = mapped_column(String(120), nullable=True)
     number: Mapped[int] = mapped_column(nullable=False)
     in_bot_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    sex: Mapped[str] = mapped_column(String(120), nullable=False)
     years: Mapped[int] = mapped_column(nullable=False)
     unic_your_id: Mapped[str] = mapped_column(String(120), nullable=False)
     unic_wanted_id: Mapped[str] = mapped_column(String(120), nullable=False)

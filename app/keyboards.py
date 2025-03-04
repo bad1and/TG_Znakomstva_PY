@@ -3,6 +3,14 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from app.questions import questions,questions_wanted
 
 
+def partner_navigation_keyboard(index: int, total: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='⬅', callback_data=f'prev_{index}'),
+         InlineKeyboardButton(text=f'{index + 1}/{total}', callback_data='none'),
+         InlineKeyboardButton(text='➡', callback_data=f'next_{index}')]
+    ])
+
+
 def get_question_keyboard(question_id: int) -> InlineKeyboardMarkup:
     """Генерирует inline-клавиатуру для вопросов про пользователя"""
     buttons = [
@@ -21,6 +29,14 @@ def get_wanted_question_keyboard(question_id: int) -> InlineKeyboardMarkup:
 
 back = InlineKeyboardMarkup(
     inline_keyboard=[[InlineKeyboardButton(text="Назад", callback_data="back")]]
+)
+
+sex = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text='Мужской'), KeyboardButton(text='Женский')]
+    ],
+    resize_keyboard=True,
+    input_field_placeholder='Выберите пол...'
 )
 
 start_opros = ReplyKeyboardMarkup(
