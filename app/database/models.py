@@ -52,7 +52,7 @@ class UserInfo(Base):
     years: Mapped[int] = mapped_column(nullable=False)
     unic_your_id: Mapped[str] = mapped_column(String(120), nullable=False)
     unic_wanted_id: Mapped[str] = mapped_column(String(120), nullable=False)
-
+    status: Mapped[bool] = mapped_column(nullable=False)
 
 
 async def async_main():

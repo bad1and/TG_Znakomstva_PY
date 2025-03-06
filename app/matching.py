@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from app.database.models import async_session, UserInfo
 from app.keyboards import partner_navigation_keyboard
 
+
 def is_similar(id1: str, id2: str) -> bool:
     """Определяет, насколько два unic_id похожи по заданному критерию."""
     return sum(1 for a, b in zip(id1, id2) if a == b) >= len(id1) - 1  # Допускаем 1 несовпадение
@@ -11,7 +12,9 @@ def is_similar(id1: str, id2: str) -> bool:
 
 async def find_matching_users(user):
     async with async_session() as session:
-        all_users = await session.scalars(select(UserInfo).where(UserInfo.tg_id != user.tg_id and UserInfo.sex != user.sex))
+
+        all_users = await session.scalars(select(UserInfo).where(
+            (UserInfo.tg_id != user.tg_id) & (UserInfo.sex != user.sex) & (UserInfo.status == user.status)))
         perfect_matches = []
         similar_matches = []
 
@@ -22,6 +25,7 @@ async def find_matching_users(user):
                 similar_matches.append(candidate)
 
         return perfect_matches + similar_matches
+
 
 async def show_partner_profile(message: Message, users, index: int):
     partner = users[index]

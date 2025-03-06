@@ -5,16 +5,15 @@ from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, BufferedInputFile, CallbackQuery
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 import app.database.requests as rq
 import app.keyboards as kb
 from app.database.models import async_session, UserInfo, RegistrationState
-from app.questions import questions,questions_wanted
+from app.questions import questions, questions_wanted
 from app.matching import find_matching_users, show_partner_profile
 
 router = Router()
-
 
 
 # Команда /start
@@ -57,12 +56,13 @@ async def handle_contact(message: Message):
         in_bot_name=None,
         years=None,
         unic_your_id=None,
-        unic_wanted_id=None
+        unic_wanted_id=None,
+        status=1
     )
 
-    await message.answer("Спасибо за регистрацию! Добро пожаловать!", reply_markup=None)
-    await message.answer("Кажется, вы не проходили опрос! Испугался? Не бойся! Давай пройдем его. (если вы не с ФКТИ)",
-                         reply_markup=kb.opros_keyboard)
+    await message.answer(
+        "Спасибо за регистрацию! Добро пожаловать! \nКажется, вы не проходили опрос! Испугался? Не бойся! Давай пройдем его.",
+        reply_markup=kb.opros_keyboard)
 
 
 # Начало опроса
@@ -70,6 +70,7 @@ async def handle_contact(message: Message):
 async def start_survey(message: Message, state: FSMContext):
     await message.answer("Как тебя зовут?", reply_markup=None)
     await state.set_state(RegistrationState.waiting_for_name)
+
 
 # Обработчик для ввода имени
 @router.message(RegistrationState.waiting_for_name)
@@ -85,9 +86,9 @@ async def process_name(message: Message, state: FSMContext):
 async def process_sex(message: Message, state: FSMContext):
     sex = message.text
     try:
-        if sex == "Мужской":
+        if sex == "Мужской 🙋‍♂️":
             sex = "men"
-        elif sex == "Женский":
+        elif sex == "Женский 🙋‍♀️":
             sex = "woman"
         else:
             await message.answer("Нет такого варианта", reply_markup=None)
@@ -125,22 +126,25 @@ async def process_age(message: Message, state: FSMContext):
         sex=sex,
         unic_your_id=0,
         unic_wanted_id=0,
-        username = None,
-        first_name = None,
-        last_name = None,
-        number = None
+        username=None,
+        first_name=None,
+        last_name=None,
+        number=None,
+        status=1
     )
 
-    await message.answer("Теперь давай заполним анкету о тебе и твоих предпочтениях в партнере!", reply_markup=kb.start_opros)
+    await message.answer("Теперь давай заполним анкету о тебе и твоих предпочтениях в партнере!",
+                         reply_markup=kb.start_opros)
     await state.clear()
 
 
-@router.message(F.text.in_(['Пройти опросик))', 'Изменить анкету']))
+@router.message(F.text.in_(['Пройти опросик 👻', 'Перепройти опрос 🔄']))
 async def start_survey(message: Message, state: FSMContext):
     """Запускает опрос"""
     await state.update_data(your_answers=[])
     await state.update_data(wanted_answers=[])
     await ask_question(message, state, 1)
+
 
 async def ask_question(message: Message, state: FSMContext, question_id: int):
     """Задает следующий вопрос про пользователя"""
@@ -173,12 +177,13 @@ async def ask_wanted_question(message: Message, state: FSMContext, question_id: 
             username=user.tg_username if user else None,
             first_name=user.first_name if user else None,
             last_name=user.last_name if user else None,
-            number=user.number if user else None
+            number=user.number if user else None,
+            status=user.status if user else None
         )
 
         if user_id == int(os.getenv('ADMIN_ID')):
             await message.answer(f"Готово админ", reply_markup=kb.admin_menu)
-        elif F.text == 'Пройти опросик))':
+        elif F.text == 'Пройти опросик 👻))':
             await message.answer(f"Видишь, не стоило бояться! Ты прошел регистрацию!", reply_markup=kb.menu)
         elif F.text == 'Изменить анкету':
             await message.answer(f"Анкета успешно изменена", reply_markup=kb.menu)
@@ -218,22 +223,25 @@ async def handle_wanted_answer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-
-
-
-
-@router.message(F.text == 'Искать партнера 🥵')
+@router.message(F.text == 'Искать партнера 😏')
 async def find_partner(message: Message, state: FSMContext):
     async with async_session() as session:
         user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == message.from_user.id))
 
-        matched_users = await find_matching_users(user)
-        if not matched_users:
-            await message.answer("Совпадений не найдено.")
-            return
+        check_user_status = await session.scalar(select(UserInfo.status).where(UserInfo.tg_id == message.from_user.id))
+        if check_user_status:
+            matched_users = await find_matching_users(user)
+            if not matched_users:
+                await message.answer("Совпадений не найдено.")
+                return
 
-        await state.update_data(matched_users=matched_users)
-        await show_partner_profile(message, matched_users, 0)
+            await state.update_data(matched_users=matched_users)
+            await show_partner_profile(message, matched_users, 0)
+        else:
+            await message.answer(
+                'Ваша анкета отключена. Для поиска включите ее в меню "Моя анкета 🫵"',
+                reply_markup=kb.admin_menu if message.from_user.id == int(os.getenv('ADMIN_ID')) else kb.menu
+            )
 
 
 @router.callback_query(F.data.startswith("prev_"))
@@ -264,9 +272,6 @@ async def next_partner(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-
-
-
 @router.message(F.text == 'Назад 👈')
 async def menu(message: Message):
     if message.from_user.id == int(os.getenv('ADMIN_ID')):
@@ -275,8 +280,8 @@ async def menu(message: Message):
         await message.answer("Выберите действие", reply_markup=kb.menu)
 
 
-@router.message(F.text == 'Моя анкета 🤥')
-async def find_partner(message: Message):
+@router.message(F.text == 'Моя анкета 🫵')
+async def my_anket(message: Message):
     async with async_session() as session:
         user = await session.scalar(select(UserInfo).where(UserInfo.tg_id == message.from_user.id))
         if (not user) and (message.from_user.id != int(os.getenv('ADMIN_ID'))):
@@ -289,6 +294,17 @@ async def find_partner(message: Message):
         # Получаем аватарку пользователя
         user_profile_photo = await message.bot.get_user_profile_photos(message.from_user.id, limit=1)
 
+        if user.status == 1:
+            status = 'Участвует в поиске)'
+        else:
+            status = 'Не участвует в поиске('
+
+        profile_text = f"Имя: {user.in_bot_name if user and user.in_bot_name else 'Не указано'}\n" \
+                       f"Пол: {user.sex if user and user.sex else 'Не указан'}\n" \
+                       f"Возраст: {user.years if user and user.years else 'Не указан'}\n\n" \
+                       f"Состояние анкеты: {status}"
+
+        await message.answer('Твоя анкета:', reply_markup=kb.myanket_menu)
         if user_profile_photo.total_count > 0:
             # Берем фото самого высокого качества
             photo = user_profile_photo.photos[0][-1]  # последнее фото из списка
@@ -303,25 +319,52 @@ async def find_partner(message: Message):
             # Отправляем аватарку
             await message.bot.send_photo(
                 chat_id=message.chat.id,
+                caption=profile_text,
                 photo=BufferedInputFile(file_bytes.read(), filename="avatar.jpg")
             )
         else:
             # Если аватарки нет, отправляем сообщение
-            await message.answer("У вас нет аватарки! Загрузите её в Telegram, чтобы она отображалась здесь.")
-
-        # Профиль
-
-        profile_text = f"**Твоя анкета:**\n\n" \
-                       f"Имя: {user.in_bot_name if user and user.in_bot_name else 'Не указано'}\n" \
-                       f"Пол: {user.sex if user and user.sex else 'Не указан'}\n" \
-                       f"Возраст: {user.years if user and user.years else 'Не указан'}"
-
-        await message.answer(profile_text, reply_markup=kb.back)
+            await message.answer(f"Кажется у вас нет аватарки, либо она скрыта(\n\n {profile_text}")
 
 
-@router.message(F.text == 'Админ-панель')
+@router.message(F.text == 'Изменить статус 🕐')
+async def change_status(message: Message):
+    await message.answer(
+        "Выберите статус анкеты:",
+        reply_markup=kb.status_keyboard()
+    )
+
+
+@router.callback_query(F.data.in_({"enable_profile", "disable_profile"}))
+async def update_status(call: CallbackQuery):
+    new_status = 1 if call.data == "enable_profile" else 0
+
+    async with async_session() as session:
+        user = await session.execute(select(UserInfo).where(UserInfo.tg_id == call.from_user.id))
+        user = user.scalars().first()
+        if user:
+            user.status = new_status
+            await session.commit()
+
+    await call.message.delete()
+    await call.answer("Статус анкеты обновлен ✅")
+
+    # После обновления статуса отправляем анкету
+
+
+@router.message(F.text == 'Админ-панель 👑')
 async def admin(message: Message):
     if message.from_user.id == int(os.getenv('ADMIN_ID')):
         await message.answer("Ты авторизовался в админку", reply_markup=kb.admin)
     else:
         await message.answer("Не понимаю тебя ", reply_markup=kb.menu)
+
+
+@router.message(F.text == 'К-во userов')
+async def users_count(message: Message):
+    if message.from_user.id == int(os.getenv('ADMIN_ID')):
+        async with async_session() as session:
+            result = await session.scalar(select(func.count()).select_from(UserInfo))
+            await message.answer(f'Пользователей: {result}', reply_markup=kb.admin)
+    else:
+        await message.answer('Мая-твая не понимать', reply_markup=kb.menu)
