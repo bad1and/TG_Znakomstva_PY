@@ -5,7 +5,7 @@
 ## To copy my git proj:
 
 ```
-git clone https://github.com/bad1and/Leti_Znakomstva.git
+git clone https://github.com/bad1and/TG_Znakomstva.git
 ```
 
 <h2 align="center"><a  href="https://github.com/bad1and">by bdlnd</a></h2>
